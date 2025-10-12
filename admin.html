@@ -134,7 +134,7 @@
   const auth = getAuth(app);
 
   // --- GÜVENLİK ---
-  const ADMIN_EMAIL = "fatih.tatlici@vizyonkoleji.k12.tr"; // Yalnızca bu e-posta adresi giriş yapabilir
+  const ADMIN_EMAIL = "tatlcfatih@gmail.com"; // Yalnızca bu e-posta adresi giriş yapabilir
   const loginScreen = document.getElementById('login-screen');
   const adminPanel = document.getElementById('admin-panel');
 
@@ -150,12 +150,26 @@
 
   document.getElementById('login-btn-google').addEventListener('click', async () => {
     const provider = new GoogleAuthProvider();
+  async function handleSignIn(provider) {
     try {
       await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      // Giriş yapan kullanıcının e-postasını kontrol et
+      if (result.user.email !== ADMIN_EMAIL) {
+        alert("Bu e-posta adresi yönetici olarak yetkilendirilmemiştir.");
+        await auth.signOut(); // Yetkisiz kullanıcıyı sistemden çıkar
+      }
+      // Yetkili kullanıcı için onAuthStateChanged zaten paneli gösterecektir.
     } catch (error) {
       console.error("Giriş hatası:", error);
       alert("Google ile giriş yapılamadı. Lütfen konsolu kontrol edin.");
+      alert("Giriş işlemi sırasında bir hata oluştu. Lütfen konsolu kontrol edin.");
     }
+  }
+
+  document.getElementById('login-btn-google').addEventListener('click', async () => {
+    const provider = new GoogleAuthProvider();
+    await handleSignIn(provider);
   });
 
   document.getElementById('login-btn-microsoft').addEventListener('click', async () => {
@@ -166,6 +180,7 @@
       console.error("Microsoft ile giriş hatası:", error);
       alert("Microsoft ile giriş yapılamadı. Lütfen konsolu kontrol edin.");
     }
+    await handleSignIn(provider);
   });
 
   // --- İSTATİSTİK SIFIRLAMA ---
@@ -232,3 +247,4 @@
 </script>
 </body>
 </html>
+
