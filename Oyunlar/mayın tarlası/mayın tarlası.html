@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mayın Tarlası</title>
+<style>
+  :root{
+    --bg:#0e1116; --card:#151a22; --grid:#202735; --ink:#e7edf5;
+    --muted:#98a4b6; --accent:#6ee7ff; --bad:#ff6b6b; --ok:#39d98a;
+    --tile:#101824; --tile2:#0d1520; --reveal:#0f1a2a; --flag:#ffc857;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+  header{padding:14px 16px;border-bottom:1px solid var(--grid);background:#10151d}
+  h1{margin:0;font-size:18px}
+  main{max-width:720px;margin:18px auto;padding:0 16px}
+  .panel{background:var(--card);border:1px solid var(--grid);border-radius:14px;padding:12px 12px 16px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 12px}
+  .toolbar > *{background:#101824;color:var(--ink);border:1px solid var(--grid);border-radius:10px;padding:8px 12px;font-size:14px}
+  .toolbar button{cursor:pointer}
+  .toolbar button:hover{border-color:#3a4660}
+  .stats{margin-left:auto;display:flex;gap:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .grid{display:grid;gap:4px;background:transparent;touch-action:manipulation}
+  .cell{
+    width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+    background:var(--tile); border:1px solid #263145; border-radius:6px;
+    font-weight:700; user-select:none; cursor:pointer;
+  }
+  .cell:nth-child(odd){background:var(--tile2)}
+  .cell.revealed{background:var(--reveal); border-color:#2f3b54; cursor:default}
+  .cell.mine.revealed{background:#3a1a1f}
+  .cell.flag::after{content:"🚩"; font-size:18px}
+  .cell.mine.revealed::after{content:"💣"; font-size:18px}
+  .n1{color:#7dd3fc} .n2{color:#86efac} .n3{color:#fca5a5}
+  .n4{color:#c4b5fd} .n5{color:#f9a8d4} .n6{color:#fde68a}
+  .n7{color:#fda4af} .n8{color:#a5b4fc}
+  .msg{margin-top:10px;color:var(--muted)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  @media (max-width:480px){
+    .cell{width:34px;height:34px}
+  }
+</style>
+</head>
+<body>
+  <header><h1>🎮 Mayın Tarlası</h1></header>
+  <main>
+    <div class="panel">
+      <div class="toolbar">
+        <button id="newBtn">Yeni Oyun</button>
+        <label>Boyut:
+          <select id="sizeSel">
+            <option value="9x9x10">9×9 • 10 mayın</option>
+            <option value="12x12x20">12×12 • 20 mayın</option>
+            <option value="16x16x40">16×16 • 40 mayın</option>
+          </select>
+        </label>
+        <button id="flagBtn" title="Mobil için bayrak modunu aç/kapat">🏴 Bayrak Modu: Kapalı</button>
+        <div class="stats">
+          <div>⏱️ <span id="time">0</span>s</div>
+          <div>💣 <span id="minesLeft">0</span></div>
+        </div>
+      </div>
+      <div id="grid" class="grid" role="grid" aria-label="Mayın Tarlası"></div>
+      <div id="msg" class="msg">İlk tıkın daima güvenli. Sağ tık 🚩, mobilde “Bayrak Modu”nu kullan.</div>
+    </div>
+  </main>
+
+<script>
+(function(){
+  // ---- Oyun durumu ----
+  let rows=9, cols=9, mines=10;
+  let board = [];       // hücreler
+  let firstClick = true;
+  let alive = true, won = false;
+  let flags = 0, revealed = 0;
+  let timer=0, timerId=null;
+  let flagMode = false;
+
+  const gridEl = document.getElementById('grid');
+  const msgEl = document.getElementById('msg');
+  const timeEl = document.getElementById('time');
+  const minesLeftEl = document.getElementById('minesLeft');
+  const newBtn = document.getElementById('newBtn');
+  const sizeSel = document.getElementById('sizeSel');
+  const flagBtn = document.getElementById('flagBtn');
+
+  function setMsg(t,cls=''){ msgEl.className='msg '+cls; msgEl.textContent=t; }
+
+  function init(r=9,c=9,m=10){
+    rows=r; cols=c; mines=m;
+    board = Array.from({length:rows}, ()=> Array.from({length:cols}, ()=> ({
+      mine:false, r:0, f:false, rev:false, el:null
+    })));
+    firstClick = true; alive = true; won=false;
+    flags=0; revealed=0; timer=0; timeEl.textContent='0';
+    clearInterval(timerId); timerId=null;
+    minesLeftEl.textContent = String(mines - flags);
+    flagMode=false; flagBtn.textContent='🏴 Bayrak Modu: Kapalı';
+
+    buildGrid();
+    setMsg('İlk tık güvenli. Sağ tık 🚩, mobil için “Bayrak Modu”.');
+  }
+
+  function buildGrid(){
+    gridEl.innerHTML = '';
+    gridEl.style.gridTemplateColumns = `repeat(${cols}, 34px)`;
+    gridEl.style.justifyContent='center';
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const d = board[r][c];
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('role','button');
+        cell.setAttribute('aria-label',`hücre ${r+1},${c+1}`);
+        d.el = cell;
+
+        // Sol tık (aç)
+        cell.addEventListener('click', (e)=>{
+          e.preventDefault();
+          if(!alive) return;
+          if(flagMode){ toggleFlag(r,c); return; }
+          openCell(r,c);
+        });
+
+        // Sağ tık (bayrak)
+        cell.addEventListener('contextmenu', (e)=>{
+          e.preventDefault();
+          if(!alive) return;
+          toggleFlag(r,c);
+        });
+
+        gridEl.appendChild(cell);
+      }
+    }
+  }
+
+  function neighbors(r,c){
+    const res=[];
+    for(let dr=-1;dr<=1;dr++)
+      for(let dc=-1;dc<=1;dc++){
+        if(!dr && !dc) continue;
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0 && nr<rows && nc>=0 && nc<cols) res.push([nr,nc]);
+      }
+    return res;
+  }
+
+  function placeMines(safeR, safeC){
+    // safeR,safeC ve komşularına mayın koyma
+    const forbidden = new Set();
+    forbidden.add(safeR+','+safeC);
+    neighbors(safeR,safeC).forEach(([rr,cc])=> forbidden.add(rr+','+cc));
+    let placed=0;
+    while(placed<mines){
+      const r = Math.floor(Math.random()*rows);
+      const c = Math.floor(Math.random()*cols);
+      const key=r+','+c;
+      if(forbidden.has(key) || board[r][c].mine) continue;
+      board[r][c].mine = true;
+      placed++;
+    }
+    // komşu mayın sayıları
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        board[r][c].r = board[r][c].mine ? -1 :
+           neighbors(r,c).reduce((acc,[rr,cc])=> acc + (board[rr][cc].mine?1:0),0);
+      }
+    }
+  }
+
+  function startTimer(){
+    if(timerId) return;
+    timerId = setInterval(()=>{ timer++; timeEl.textContent=String(timer); },1000);
+  }
+
+  function openCell(r,c){
+    const d = board[r][c];
+    if(d.rev || d.f) return;
+
+    // İlk tıkta mayınları yerleştir (güvenli başlat)
+    if(firstClick){
+      placeMines(r,c);
+      firstClick = false;
+      startTimer();
+    }
+
+    if(d.mine){
+      // Kaybettin
+      revealAllMines();
+      d.el.classList.add('revealed','mine');
+      alive=false; clearInterval(timerId);
+      setMsg('💥 Mayına bastın! “Yeni Oyun” ile tekrar dene.', 'bad');
+      return;
+    }
+
+    // BFS ile boşları aç
+    const q=[[r,c]];
+    let openedNow=0;
+    while(q.length){
+      const [rr,cc] = q.shift();
+      const cell = board[rr][cc];
+      if(cell.rev || cell.f) continue;
+      cell.rev = true;
+      openedNow++;
+      const el = cell.el;
+      el.classList.add('revealed');
+      el.textContent = '';
+      if(cell.r>0){
+        el.textContent = String(cell.r);
+        el.classList.add('n'+cell.r);
+      }else{
+        // boşsa komşu boşları aç
+        neighbors(rr,cc).forEach(([nr,nc])=>{
+          const n = board[nr][nc];
+          if(!n.rev && !n.mine) q.push([nr,nc]);
+        });
+      }
+    }
+    revealed += openedNow;
+    checkWin();
+  }
+
+  function toggleFlag(r,c){
+    const d = board[r][c];
+    if(d.rev) return;
+    d.f = !d.f;
+    d.el.classList.toggle('flag', d.f);
+    flags += d.f ? 1 : -1;
+    minesLeftEl.textContent = String(Math.max(0, mines - flags));
+    checkWin();
+  }
+
+  function revealAllMines(){
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const d=board[r][c];
+        if(d.mine){
+          d.el.classList.add('revealed','mine');
+        }else if(d.r>0 && !d.rev){
+          d.el.classList.add('revealed','n'+d.r);
+          d.el.textContent = String(d.r);
+        }else if(!d.rev){
+          d.el.classList.add('revealed');
+        }
+      }
+    }
+  }
+
+  function checkWin(){
+    if(!alive) return;
+    const totalSafe = rows*cols - mines;
+    if(revealed === totalSafe){
+      alive=false; won=true; clearInterval(timerId);
+      setMsg('🎉 Tebrikler! Hepsini açtın.', 'ok');
+    }
+  }
+
+  // ---- UI events ----
+  newBtn.onclick = ()=> {
+    const [rr,cc,mm] = sizeSel.value.split('x').map(Number);
+    init(rr,cc,mm);
+  };
+  sizeSel.onchange = ()=> newBtn.click();
+  flagBtn.onclick = ()=>{
+    flagMode = !flagMode;
+    flagBtn.textContent = flagMode ? '🏴 Bayrak Modu: Açık' : '🏴 Bayrak Modu: Kapalı';
+    setMsg(flagMode ? 'Bayrak Modu aktif: dokununca 🚩 koyar/kaldırır.' : 'Bayrak Modu kapalı: dokununca hücre açılır.');
+  };
+
+  // Başlat
+  init(rows,cols,mines);
+})();
+</script>
+</body>
+</html>
