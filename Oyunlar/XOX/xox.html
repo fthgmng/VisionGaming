@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>X O X | VisionGaming</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#151a22; --line:#233046; --ink:#e7edf5; --muted:#96a3b6; --accent:#6ee7ff; --win:#30d158; --lose:#ff453a;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+  .wrap{max-width:880px;margin:0 auto;padding:24px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  a.back{color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:8px 10px;border-radius:10px}
+  a.back:hover{background:#0f1726;border-color:#3a4660}
+  h1{margin:0;font-size:22px}
+  .sub{margin:2px 0 0;color:var(--muted);font-size:14px}
+  .cell {
+  color: #fff !important;     /* X ve O beyaz olsun */
+  text-shadow: 0 0 8px rgba(255,255,255,0.4); /* hafif parıltı efekti */
+}
+  .panel{display:grid;grid-template-columns:1fr 340px;gap:18px}
+  @media (max-width:900px){.panel{grid-template-columns:1fr}}
+
+  .board{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;aspect-ratio:1/1;
+  }
+  .cell{
+    display:flex;align-items:center;justify-content:center;
+    font-size:48px;font-weight:800;cursor:pointer;
+    border:1px solid var(--line);border-radius:14px;background:#0f1726;user-select:none;
+    transition:transform .06s, background .2s, border-color .2s;
+  }
+  .cell:hover{transform:translateY(-1px);background:#0f1b2a;border-color:#3a4660}
+  .cell.disabled{cursor:not-allowed;opacity:.6}
+  .cell.win{outline:2px solid var(--win)}
+  .cell.lose{outline:2px solid var(--lose)}
+  .cell.draw{outline:2px solid var(--muted)}
+
+  .side{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px
+  }
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .btn{
+    background:#0f1726;border:1px solid var(--line);color:var(--ink);padding:10px 12px;border-radius:10px;cursor:pointer
+  }
+  .btn:hover{background:#0f1b2a;border-color:#3a4660}
+  .btn.primary{border-color:var(--accent)}
+  .badge{display:inline-block;border:1px solid var(--line);background:#0f1726;color:var(--muted);padding:4px 10px;border-radius:999px;font-size:12px}
+  .score{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .box{border:1px solid var(--line);background:#0f1726;border-radius:12px;padding:10px 12px;min-width:110px}
+  .box h3{margin:0 0 4px;font-size:13px;color:var(--muted)}
+  .box .n{font-size:20px;font-weight:800}
+
+  footer{margin-top:16px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🧩 X O X</h1>
+      <p class="sub">Sırayla 3’lü yap! Tek kişilik (bilgisayara karşı) veya iki kişilik oynayabilirsin.</p>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="board" id="board" aria-label="XOX Tahtası"></div>
+
+    <aside class="side">
+      <div class="row">
+        <span class="badge" id="turnBadge">Sıra: X</span>
+        <span class="badge" id="modeBadge">Mod: Bilgisayara Karşı</span>
+      </div>
+
+      <div class="row" role="group" aria-label="Oyun Modu">
+        <button class="btn" id="vsAiBtn">🤖 Bilgisayara Karşı</button>
+        <button class="btn" id="vsHumanBtn">👥 İki Kişilik</button>
+      </div>
+
+      <div class="row" role="group" aria-label="Sembol Seçimi">
+        <button class="btn" id="playX">X ile Oyna</button>
+        <button class="btn" id="playO">O ile Oyna</button>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" id="resetBtn">↻ Sıfırla</button>
+      </div>
+
+      <div class="score">
+        <div class="box"><h3>X Kazandı</h3><div class="n" id="scX">0</div></div>
+        <div class="box"><h3>O Kazandı</h3><div class="n" id="scO">0</div></div>
+        <div class="box"><h3>Beraberlik</h3><div class="n" id="scD">0</div></div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>© <span id="year"></span> VisionGaming • XOX</footer>
+</div>
+
+<script>
+(function(){
+  const boardEl = document.getElementById('board');
+  const turnBadge = document.getElementById('turnBadge');
+  const modeBadge = document.getElementById('modeBadge');
+  const scX = document.getElementById('scX'), scO = document.getElementById('scO'), scD = document.getElementById('scD');
+
+  const vsAiBtn = document.getElementById('vsAiBtn');
+  const vsHumanBtn = document.getElementById('vsHumanBtn');
+  const playXBtn = document.getElementById('playX');
+  const playOBtn = document.getElementById('playO');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const LSK = 'xox_score';
+  function loadScore(){ try { return JSON.parse(localStorage.getItem(LSK)) || {x:0,o:0,d:0}; } catch { return {x:0,o:0,d:0}; } }
+  function saveScore(s){ localStorage.setItem(LSK, JSON.stringify(s)); }
+  let score = loadScore(); renderScore();
+
+  let board = Array(9).fill('');
+  let turn = 'X';
+  let mode = 'ai'; // 'ai' | 'human'
+  let humanSymbol = 'X'; // AI için zıt sembol
+
+  function renderScore(){
+    scX.textContent = score.x; scO.textContent = score.o; scD.textContent = score.d;
+  }
+
+  function drawBoard(){
+    boardEl.innerHTML = '';
+    board.forEach((v,i)=>{
+      const c = document.createElement('button');
+      c.className = 'cell';
+      c.setAttribute('data-i', i);
+      c.setAttribute('aria-label', `Hücre ${i+1}`);
+      c.textContent = v;
+      if (v) c.classList.add('disabled');
+      c.addEventListener('click', onCell);
+      boardEl.appendChild(c);
+    });
+    turnBadge.textContent = `Sıra: ${turn}`;
+    modeBadge.textContent = `Mod: ${mode==='ai'?'Bilgisayara Karşı':'İki Kişilik'}`;
+  }
+
+  function onCell(e){
+    const i = +e.currentTarget.getAttribute('data-i');
+    if (board[i]) return;
+    if (isGameOver(board)) return;
+
+    move(i, turn);
+    const won = isGameOver(board);
+    if (won) return finish(won);
+
+    // AI sırası
+    if (mode==='ai'){
+      const aiSym = humanSymbol==='X' ? 'O':'X';
+      if (turn === aiSym){
+        // küçük gecikme ile doğal his
+        setTimeout(()=>{
+          const j = aiPick(board, aiSym);
+          move(j, aiSym);
+          const w2 = isGameOver(board);
+          if (w2) return finish(w2);
+        }, 120);
+      }
+    }
+  }
+
+  function move(i, sym){
+    board[i] = sym;
+    turn = sym==='X' ? 'O' : 'X';
+    const cell = boardEl.querySelector(`.cell[data-i="${i}"]`);
+    if (cell){ cell.textContent = sym; cell.classList.add('disabled'); }
+    turnBadge.textContent = `Sıra: ${turn}`;
+  }
+
+  function isGameOver(b){
+    const lines = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
+    for (const [a,c,d] of lines){
+      if (b[a] && b[a]===b[c] && b[a]===b[d]) return {winner:b[a], line:[a,c,d]};
+    }
+    if (b.every(Boolean)) return {winner:'draw', line:[]};
+    return null;
+  }
+
+  // Basit ama etkili AI: 1) kazanabiliyorsa kazan 2) blokla 3) merkez 4) köşe 5) rastgele
+  function aiPick(b, ai){
+    const hu = ai==='X' ? 'O' : 'X';
+    // kazanma
+    for (let i=0;i<9;i++){ if(!b[i]){ b[i]=ai; if(isGameOver(b)?.winner===ai){ b[i]=''; return i;} b[i]=''; } }
+    // blok
+    for (let i=0;i<9;i++){ if(!b[i]){ b[i]=hu; if(isGameOver(b)?.winner===hu){ b[i]=''; return i;} b[i]=''; } }
+    // merkez
+    if(!b[4]) return 4;
+    // köşeler
+    const corners=[0,2,6,8].filter(i=>!b[i]);
+    if(corners.length) return corners[Math.floor(Math.random()*corners.length)];
+    // kalan
+    const rest = b.map((v,i)=>v?null:i).filter(v=>v!==null);
+    return rest[Math.floor(Math.random()*rest.length)];
+  }
+
+  function highlight(line, cls){
+    line.forEach(i=>{
+      const cell = boardEl.querySelector(`.cell[data-i="${i}"]`);
+      if(cell) cell.classList.add(cls);
+    });
+  }
+
+  function finish(res){
+    const over = document.querySelectorAll('.cell');
+    over.forEach(c=>c.classList.add('disabled'));
+
+    if (res.winner==='draw'){
+      highlight(board.map((_,i)=>i),'draw');
+      score.d++; saveScore(score); renderScore();
+      turnBadge.textContent = 'Beraberlik!';
+      return;
+    }
+    const cls = res.winner==='X' ? 'win' : 'lose';
+    highlight(res.line, cls);
+    if (res.winner==='X') score.x++; else score.o++;
+    saveScore(score); renderScore();
+    turnBadge.textContent = `Kazanan: ${res.winner}`;
+  }
+
+  function resetBoard(keepScore=true){
+    board = Array(9).fill('');
+    turn = 'X';
+    drawBoard();
+    if(!keepScore){ score={x:0,o:0,d:0}; saveScore(score); renderScore(); }
+  }
+
+  // Kontroller
+  vsAiBtn.onclick = ()=>{ mode='ai'; resetBoard(true); };
+  vsHumanBtn.onclick = ()=>{ mode='human'; resetBoard(true); };
+  playXBtn.onclick = ()=>{ humanSymbol='X'; resetBoard(true); };
+  playOBtn.onclick = ()=>{ humanSymbol='O'; resetBoard(true); turn='X'; drawBoard(); };
+  resetBtn.onclick = ()=> resetBoard(true);
+
+  // init
+  document.getElementById('year').textContent = new Date().getFullYear();
+  drawBoard();
+})();
+</script>
+</body>
+</html>

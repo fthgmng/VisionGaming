@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yılan Oyunu | VisionGaming</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#151a22; --line:#233046; --ink:#e7edf5;
+    --muted:#96a3b6; --accent:#6ee7ff; --good:#30d158; --bad:#ff453a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+  .wrap{max-width:920px;margin:0 auto;padding:24px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  a.back{color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:8px 10px;border-radius:10px}
+  a.back:hover{background:#0f1726;border-color:#3a4660}
+  h1{margin:0;font-size:22px}
+  .sub{margin:2px 0 0;color:var(--muted);font-size:14px}
+
+  .panel{display:grid;grid-template-columns:1fr 320px;gap:18px}
+  @media (max-width:900px){.panel{grid-template-columns:1fr}}
+
+  .stage{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  canvas{background:#0b1220;border:1px solid var(--line);border-radius:12px;max-width:100%;touch-action:none}
+  .side{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .btn{background:#0f1726;border:1px solid var(--line);color:var(--ink);padding:10px 12px;border-radius:10px;cursor:pointer}
+  .btn:hover{background:#0f1b2a;border-color:#3a4660}
+  .btn.primary{border-color:var(--accent)}
+  .badge{display:inline-block;border:1px solid var(--line);background:#0f1726;color:var(--muted);padding:4px 10px;border-radius:999px;font-size:12px}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .box{border:1px solid var(--line);background:#0f1726;border-radius:12px;padding:10px 12px;min-width:120px}
+  .box h3{margin:0 0 4px;font-size:13px;color:var(--muted)}
+  .box .n{font-size:20px;font-weight:800}
+
+  .pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:8px;justify-content:center;margin-top:12px}
+  .pad button{height:64px;border-radius:12px;border:1px solid var(--line);background:#0f1726;color:var(--ink);font-size:18px}
+  .pad button:active{transform:scale(.98)}
+  .pad .empty{opacity:0;pointer-events:none}
+
+  footer{margin-top:16px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+   
+    <div>
+      <h1>🪱 Yılan Oyunu</h1>
+      <p class="sub">Elmayı ye, büyü! Duvara ya da kendine çarparsan oyun biter. Ok tuşları / WASD / dokunmatik yön ped’i destekler.</p>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="stage">
+      <canvas id="game" width="420" height="420" aria-label="Yılan oyun sahası"></canvas>
+    </div>
+
+    <aside class="side">
+      <div class="row">
+        <span class="badge" id="stateBadge">Hazır</span>
+        <span class="badge" id="speedBadge">Hız: Orta</span>
+      </div>
+      <div class="stats">
+        <div class="box"><h3>Skor</h3><div class="n" id="sc">0</div></div>
+        <div class="box"><h3>En İyi</h3><div class="n" id="hs">0</div></div>
+      </div>
+
+      <div class="row" role="group" aria-label="Kontroller">
+        <button class="btn primary" id="startBtn">▶ Başlat / Duraklat</button>
+        <button class="btn" id="resetBtn">↻ Sıfırla</button>
+      </div>
+
+      <div class="row" role="group" aria-label="Hız">
+        <button class="btn" data-speed="slow">🐢 Yavaş</button>
+        <button class="btn" data-speed="medium">⚖️ Orta</button>
+        <button class="btn" data-speed="fast">⚡ Hızlı</button>
+      </div>
+
+      <!-- Dokunmatik yön ped’i (mobil) -->
+      <div class="pad" id="pad">
+        <button class="empty"></button>
+        <button data-dir="up">⬆</button>
+        <button class="empty"></button>
+        <button data-dir="left">⬅</button>
+        <button class="empty"></button>
+        <button data-dir="right">➡</button>
+        <button class="empty"></button>
+        <button data-dir="down">⬇</button>
+        <button class="empty"></button>
+      </div>
+    </aside>
+  </div>
+
+  <footer>© <span id="year"></span> VisionGaming • Snake</footer>
+</div>
+
+<script>
+(function(){
+  const cvs = document.getElementById('game');
+  const ctx = cvs.getContext('2d');
+  const scEl = document.getElementById('sc');
+  const hsEl = document.getElementById('hs');
+  const stateBadge = document.getElementById('stateBadge');
+  const speedBadge = document.getElementById('speedBadge');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const CELL = 20;                 // kare boyutu
+  const COLS = Math.floor(cvs.width / CELL);
+  const ROWS = Math.floor(cvs.height / CELL);
+
+  const LSK = 'snake_hs';
+  function loadHS(){ return +localStorage.getItem(LSK) || 0; }
+  function saveHS(v){ localStorage.setItem(LSK, String(v)); }
+
+  let high = loadHS();
+  let score = 0;
+  let speed = 'medium';            // slow | medium | fast
+  const speedMs = { slow: 170, medium: 120, fast: 80 };
+
+  let snake, dir, nextDir, apple, timer, running = false, over = false;
+
+  function init(){
+    score = 0; over = false; running = false; dir = 'right'; nextDir = 'right';
+    // ortaya yakın yatay başlangıç
+    const cx = Math.floor(COLS/2), cy = Math.floor(ROWS/2);
+    snake = [{x:cx-1,y:cy},{x:cx-2,y:cy}];
+    spawnApple();
+    draw();
+    setState('Hazır');
+  }
+
+  function setState(s){ stateBadge.textContent = s; }
+  function setSpeed(s){
+    speed = s; speedBadge.textContent = `Hız: ${s==='slow'?'Yavaş':s==='fast'?'Hızlı':'Orta'}`;
+    if (running){ clearInterval(timer); timer = setInterval(tick, speedMs[speed]); }
+  }
+
+  function spawnApple(){
+    do{
+      apple = { x: rand(0,COLS-1), y: rand(0,ROWS-1) };
+    } while (snake.some(p=>p.x===apple.x && p.y===apple.y));
+  }
+
+  function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+  function startPause(){
+    if (over){ init(); return; }
+    running = !running;
+    if (running){
+      setState('Oynanıyor');
+      clearInterval(timer);
+      timer = setInterval(tick, speedMs[speed]);
+    } else {
+      setState('Duraklatıldı');
+      clearInterval(timer);
+    }
+  }
+
+  function reset(){
+    clearInterval(timer);
+    init();
+  }
+
+  function turn(to){
+    const opposites = {left:'right', right:'left', up:'down', down:'up'};
+    if (to !== opposites[dir]) nextDir = to;
+  }
+
+  function tick(){
+    dir = nextDir;
+    const head = { ...snake[0] };
+    if (dir==='left') head.x--;
+    else if (dir==='right') head.x++;
+    else if (dir==='up') head.y--;
+    else if (dir==='down') head.y++;
+
+    // duvar çarpışması
+    if (head.x<0 || head.x>=COLS || head.y<0 || head.y>=ROWS) return gameOver();
+
+    // kendine çarpma
+    if (snake.some(p=>p.x===head.x && p.y===head.y)) return gameOver();
+
+    snake.unshift(head);
+
+    // elma
+    if (head.x===apple.x && head.y===apple.y){
+      score++;
+      if (score>high){ high=score; saveHS(high); }
+      spawnApple();
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function gameOver(){
+    clearInterval(timer);
+    running=false; over=true;
+    setState('Oyun Bitti');
+    draw(true);
+  }
+
+  function draw(gameIsOver=false){
+    // arka plan
+    ctx.fillStyle = '#08111f';
+    ctx.fillRect(0,0,cvs.width,cvs.height);
+
+    // grid (hafif)
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for(let x=0;x<=COLS;x++){ ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,cvs.height); }
+    for(let y=0;y<=ROWS;y++){ ctx.moveTo(0,y*CELL); ctx.lineTo(cvs.width,y*CELL); }
+    ctx.stroke();
+
+    // elma
+    ctx.fillStyle = '#ff5252';
+    roundRect(ctx, apple.x*CELL+3, apple.y*CELL+3, CELL-6, CELL-6, 6, true);
+
+    // yılan
+    for(let i=snake.length-1;i>=0;i--){
+      const p = snake[i];
+      const t = i===0 ? 1.0 : 0.6 + 0.4*(i/snake.length); // baş daha parlak
+      ctx.fillStyle = `rgba(110,231,255,${t})`;
+      roundRect(ctx, p.x*CELL+2, p.y*CELL+2, CELL-4, CELL-4, 6, true);
+    }
+
+    scEl.textContent = score;
+    hsEl.textContent = high;
+
+    if (gameIsOver){
+      // “GAME OVER” overlay
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0,0,cvs.width,cvs.height);
+      ctx.fillStyle = '#e7edf5';
+      ctx.font = 'bold 28px system-ui,Segoe UI,Roboto,Arial';
+      ctx.textAlign='center';
+      ctx.fillText('Oyun Bitti', cvs.width/2, cvs.height/2 - 10);
+      ctx.font = '14px system-ui,Segoe UI,Roboto,Arial';
+      ctx.fillText('↻ Sıfırla ile yeniden başlat', cvs.width/2, cvs.height/2 + 16);
+    }
+  }
+
+  function roundRect(ctx, x, y, w, h, r, fill){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    if(fill) ctx.fill();
+  }
+
+  // Klavye
+  window.addEventListener('keydown', (e)=>{
+    const k = e.key.toLowerCase();
+    if (k==='arrowleft'||k==='a') turn('left');
+    else if (k==='arrowright'||k==='d') turn('right');
+    else if (k==='arrowup'||k==='w') turn('up');
+    else if (k==='arrowdown'||k==='s') turn('down');
+    else if (k===' '||k==='k') startPause();
+    else if (k==='r') reset();
+  });
+
+  // Dokunmatik yön ped’i
+  document.getElementById('pad').addEventListener('click', (e)=>{
+    const dir = e.target.getAttribute('data-dir');
+    if (!dir) return;
+    if (!running && !over) startPause();
+    turn(dir);
+  });
+
+  // Hız butonları
+  document.querySelectorAll('[data-speed]').forEach(b=>{
+    b.addEventListener('click', ()=> setSpeed(b.getAttribute('data-speed')));
+  });
+
+  startBtn.onclick = startPause;
+  resetBtn.onclick = reset;
+
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // Başlat
+  init();
+  setSpeed('medium');
+})();
+</script>
+</body>
+</html>
