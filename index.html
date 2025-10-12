@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VisionGaming</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#151a22; --line:#233046; --ink:#e7edf5;
+    --muted:#96a3b6; --accent:#6ee7ff; --hover:#102133;
+  }
+  *{box-sizing:border-box}
+  html{height:100%; overflow-y: scroll;} body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+  
+
+  /* Üst başlık */
+  .topbar{
+    position:sticky; top:0; z-index:40;
+    display:flex; align-items:center; justify-content:center;
+    height:56px; padding:0 14px;
+    background:#10151d; border-bottom:1px solid var(--line);
+  }
+  .brand{font-weight:800; letter-spacing:.3px; font-size:1.4rem}
+  .brand span{color:var(--accent)}
+  .hamb{
+    position:absolute; left:14px;
+    width:38px; height:38px; border:1px solid var(--line); border-radius:10px;
+    background:#0f1726; color:var(--ink); cursor:pointer; display:none;
+  }
+  .hamb:active{transform:scale(.98)}
+
+  .card{
+    text-decoration:none; color:var(--ink); transition:transform .08s, box-shadow .08s;
+  }
+  .card:hover{transform:translateY(-2px); box-shadow:0 10px 18px rgba(0,0,0,.35)}
+  .thumb{aspect-ratio:1/1; background:#0d1522; display:flex; align-items:center; justify-content:center; font-size:40px; border-bottom:1px solid var(--line)}
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block}
+  .card-body{padding:10px 12px}
+  .title{margin:0 0 6px; font-weight:700}
+  .meta{margin:0; color:var(--muted); font-size:13px}
+
+  footer{padding:20px; text-align:center; color:var(--muted); border-top:1px solid var(--line); margin-top:28px}
+
+  /* Mobil: sidebar gizle + hamburger */
+  @media (max-width: 980px) {
+    .hamb { display: inline-flex; align-items: center; justify-content: center; }
+    .sidebar {
+      position: fixed; top: 56px; left: 0; bottom: 0;
+      width: 260px; transform: translateX(-100%);
+      transition: transform .3s ease;
+      z-index: 30;
+      border-right: 1px solid var(--line);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .wrap { grid-template-columns: 1fr; }
+    .content { padding-left: 14px; padding-right: 14px; }
+  }
+
+  /* Layout */
+  .wrap {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .sidebar {
+    padding: 14px;
+    background: #10151d;
+  }
+  .sidebar h3 {
+    margin: 0 0 12px;
+    padding: 0 8px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .nav a {
+    display: block;
+    padding: 10px 12px;
+    text-decoration: none;
+    color: var(--ink);
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+  .nav a:hover { background: var(--hover); }
+  .nav a.active { background: var(--panel); font-weight: 700; }
+
+  .content { padding: 24px; }
+  .content section { display: none; }
+  .content section.active { display: block; }
+
+  h1, h2 { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  .lead { font-size: 1.1rem; color: var(--muted); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 18px;
+    margin-top: 16px;
+  }
+  .block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    margin-top: 16px;
+  }
+  .block h3 { margin: 0 0 8px; }
+
+  .hero-add {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-top: 24px;
+    background: var(--panel);
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+  }
+  .hero-add .logo {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    background: #0d1522;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--accent);
+  }
+  .hero-add .logo img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+  .hero-add .txt p { margin: 0 0 10px; }
+  .hero-add .txt p:last-child { margin-bottom: 0; }
+
+  .view-badge {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    background: #0f1726;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .like-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .like-btn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .like-btn:hover:not(:disabled) {
+    background: var(--hover);
+    color: #ff6b6b;
+  }
+  .like-btn.liked {
+    color: #ff6b6b;
+    border-color: #ff6b6b;
+    cursor: not-allowed;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="hamb" aria-label="Menüyü aç/kapat" id="hamb">☰</button>
+  <div class="brand">Vision<span>Gaming</span></div>
+</header>
+
+<div class="wrap">
+  <!-- Sol Menü -->
+  <aside class="sidebar" id="sidebar">
+    <h3>Menü</h3>
+    <nav class="nav">
+      <a href="#ana" data-tab="ana" class="active">🏠 Ana Sayfa</a>
+      <a href="#oyunlar" data-tab="oyunlar">🎮 Oyunlar</a>
+      <a href="#kategori" data-tab="kategori">🗂️ Kategoriler</a>
+      <a href="#duyurular" data-tab="duyurular">🔔 Duyurular</a>
+      <a href="#hakkimizda" data-tab="hakkimizda">ℹ️ Hakkımızda</a>
+    </nav>
+  </aside>
+
+  <!-- İçerik -->
+  <main class="content">
+    <!-- ANA SAYFA -->
+    <section id="sec-ana" class="active">
+      <h1>VisionGaming</h1>
+      <p class="lead">HTML, CSS ve JavaScript ile oluşturulmuş mini oyunların sergilendiği VisionGaming platformuna hoş geldiniz!</p>
+      <p>Soldaki menüyü kullanarak oyunlara veya diğer sayfalara geçebilirsiniz.</p>
+      <div class="hero-add">
+        <div class="logo">
+          <img src="assets/logo.png" alt="VisionGaming Logosu" onerror="this.parentNode.textContent='VG'">
+        </div>
+        <div class="txt">
+          <p><strong>VisionGaming</strong>, Vizyon Koleji öğrencilerinin HTML, CSS ve JavaScript ile ürettiği mini oyunları sergileyen bir vitrin. Hedefimiz; kod yazmayı eğlenceli ve ulaşılabilir kılmak, oyun geliştirirken algoritma, problem çözme ve tasarım becerilerini birlikte geliştirmek.</p>
+          <p>Bu platformda öğrenciler; fikir üretme → prototip → test → iyileştirme adımlarını deneyimler. İyi eğlenceler! 🎮</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- OYUNLAR -->
+    <section id="sec-oyunlar">
+      <h2>Popüler Oyunlar</h2>
+      <div class="grid" id="populerOyunlarGrid"></div>
+      <h2>Tüm Oyunlar</h2>
+      <div class="grid" id="oyunlarGrid"></div>
+    </section>
+
+    <!-- KATEGORİLER -->
+    <section id="sec-kategori">
+      <h2>Kategoriler</h2>
+      <div class="block">
+        <h3>📝 Yakında Eklenecek</h3>
+        <p>Oyunlar için kategori sistemi geliştirme aşamasındadır.</p>
+      </div>
+    </section>
+
+    <!-- DUYURULAR -->
+    <section id="sec-duyurular">
+      <h2>Duyurular</h2>
+      <div class="block">
+        <h3>📌 Son Gelişmeler</h3>
+        <ul style="margin:8px 0 0 18px;line-height:1.6">
+          <li>Yeni arayüz: Sol menü ve sekmeli yapıya geçildi.</li>
+          <li>Hafıza Oyunu, Yılan, XOX ve diğer oyunlar eklendi.</li>
+          <li>Firebase entegrasyonu ile oyun görüntüleme ve beğenme sayıları eklendi.</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h3> Gelecek Program</h3>
+        <ul style="margin:8px 0 0 18px;line-height:1.6">
+          <li>Yeni oyunlar eklenecek.</li>
+          <li>Kategori sayfaları tamamlanacak.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- HAKKIMIZDA -->
+    <section id="sec-hakkimizda">
+      <h2>Hakkımızda</h2>
+      <p class="lead">VisionGaming, öğrencilerin HTML, CSS ve JavaScript ile kendi web tabanlı oyunlarını geliştirip paylaşabildiği bir platformdur.</p>
+      <p>Amacımız, web teknolojileriyle yaratıcılığı birleştirerek öğrenmeyi eğlenceli hale getirmektir. 🎮</p>
+      <div class="block">
+        <h3>İletişim</h3>
+        <p>
+          <a href="mailto:fatih.tatlici@vizyonkoleji.k12.tr">fatih.tatlici@vizyonkoleji.k12.tr</a><br>
+          <strong>Beşir Fatih Tatlıcı</strong><br>
+          <span style="color:var(--muted);">Bilişim Teknolojileri Öğretmeni</span>
+        </p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>© <span id="year"></span> VisionGaming</footer>
+
+<script>
+  // --- TEMEL SAYFA İŞLEVLERİ ---
+  (function() {
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const sidebar = document.getElementById('sidebar');
+    const hamb = document.getElementById('hamb');
+    hamb.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+    });
+
+    const navLinks = document.querySelectorAll('.nav a');
+    const sections = document.querySelectorAll('.content section');
+
+    function setActiveTab(tabId) {
+      navLinks.forEach(link => {
+        link.classList.toggle('active', link.dataset.tab === tabId);
+      });
+      sections.forEach(sec => {
+        sec.classList.toggle('active', sec.id === `sec-${tabId}`);
+      });
+    }
+
+    navLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tabId = link.dataset.tab;
+        window.location.hash = tabId;
+        setActiveTab(tabId);
+        if (sidebar.classList.contains('open')) {
+          sidebar.classList.remove('open');
+        }
+      });
+    });
+
+    // Sayfa yüklendiğinde URL hash'ine göre doğru sekmeyi aç
+    const initialTab = window.location.hash.substring(1) || 'ana';
+    setActiveTab(initialTab);
+  })();
+</script>
+
+<script type="module">
+// --- FIREBASE VE OYUN VERİLERİ ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCF7n0rXcy13_WiH0X5cFs8ljiDMZ0iQXg",
+  authDomain: "visiongaming-3f449.firebaseapp.com",
+  projectId: "visiongaming-3f449",
+  storageBucket: "visiongaming-3f449.firebasestorage.app",
+  messagingSenderId: "1060363896797",
+  appId: "1:1060363896797:web:722ae9bf7137aa01405834",
+  measurementId: "G-Y8BGQ65JLT"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const oyunlar = [
+  {
+    id: 'mayin-tarlasi',
+    href: 'Oyunlar/mayın-tarlası/mayın tarlası.html',
+    emoji: '💣',
+    img: 'Oyunlar/mayın-tarlası/cover.jpg',
+    title: 'Mayın Tarlası',
+    meta: ['9×9 • 10 mayın', 'Geliştiren: Fatih T.']
+  },
+  {
+    id: 'hafiza',
+    href: 'Oyunlar/hafıza-oyunu/hafıza.html',
+    emoji: '🧠', 
+    img: 'oyunlar/hafiza/cover.jpg',
+    title: 'Hafıza Oyunu',
+    meta: ['4×4 • 6×4 seçenekli', 'Geliştiren: Fatih T.']
+  },
+  {
+    id: 'sudoku',
+    href: 'Oyunlar/sudoku/sudoku.html',
+    emoji: '🧩',
+    img: 'oyunlar/sudoku/cover.jpg',
+    title: 'Sudoku',
+    meta: ['Mini 4×4 • Başlangıç', 'Geliştiren: Fatih T.']
+  },
+  {
+    id: 'xox',
+    href: 'Oyunlar/XOX/xox.html',
+    emoji: '❌',
+    img: 'oyunlar/xox/cover.jpg',
+    title: 'X O X',
+    meta: ['Tek / Çift Kişilik', 'Geliştiren: Fatih T.']
+  },
+  {
+    id: 'yilan',
+    href: 'Oyunlar/Yılan/yılan.html',
+    emoji: '🪱',
+    img: 'oyunlar/yilan/cover.jpg',
+    title: 'Yılan Oyunu',
+    meta: ['Klasik Snake', 'Geliştiren: Fatih T.']
+  }
+];
+
+function renderOyunKarti(oyun, likeCount, liked, viewCount) {
+  return `
+    <a class="card" href="${oyun.href}" target="_blank" data-view-id="${oyun.id}">
+      <div class="thumb">${oyun.emoji}</div>
+      <div class="card-body">
+        <h4 class="title">${oyun.title}</h4>
+        <div class="meta">${oyun.meta.join(' • ')}
+          <span class="view-badge">👁️ ${viewCount ?? 0}</span>
+        </div>
+        <div class="like-box">
+          <button class="like-btn${liked ? ' liked' : ''}" data-like="${oyun.id}" ${liked ? 'disabled' : ''}>❤</button>
+          <span>${likeCount ?? 0}</span>
+        </div>
+      </div>
+    </a>
+  `;
+}
+
+function getLikedGames() {
+  try {
+    return JSON.parse(localStorage.getItem('likedGames') || '[]');
+  } catch {
+    return [];
+  }
+}
+
+async function fetchOnlineCounts() {
+  const counts = {};
+  for (const oyun of oyunlar) {
+    const ref = doc(db, 'games', oyun.id);
+    const snap = await getDoc(ref);
+    counts[oyun.id] = {
+      views: snap.exists() ? (snap.data().views || 0) : 0,
+      likes: snap.exists() ? (snap.data().likes || 0) : 0
+    };
+  }
+  return counts;
+}
+
+async function updateOnlineLike(id) {
+  const ref = doc(db, 'games', id);
+  try {
+    await updateDoc(ref, { likes: increment(1) });
+  } catch {
+    await setDoc(ref, { likes: 1 }, { merge: true });
+  }
+}
+
+async function updateOnlineView(id) {
+  const ref = doc(db, 'games', id);
+  try {
+    // Görüntülenme sayısını artır
+    await updateDoc(ref, { views: increment(1) });
+  } catch (e) {
+    // Belge yoksa, oluştur ve sayacı 1 yap
+    await setDoc(ref, { views: 1 }, { merge: true });
+  }
+}
+
+function wireOnlineLikeButtons() {
+  document.querySelectorAll('.like-btn[data-like]').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      const id = btn.getAttribute('data-like');
+      if (btn.classList.contains('liked')) return;
+      btn.classList.add('liked');
+      btn.disabled = true;
+      
+      // Beğeni sayısını yerel olarak artır
+      const countSpan = btn.nextElementSibling;
+      countSpan.textContent = parseInt(countSpan.textContent) + 1;
+
+      // Firebase'i güncelle
+      await updateOnlineLike(id);
+
+      // Beğeniyi localStorage'a kaydet
+      let likedGames = getLikedGames();
+      if (!likedGames.includes(id)) {
+        likedGames.push(id);
+        localStorage.setItem('likedGames', JSON.stringify(likedGames));
+      }
+    });
+  });
+}
+
+function wireOnlineViewCounters() {
+  document.querySelectorAll('a.card[data-view-id]').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.dataset.viewId;
+      updateOnlineView(id);
+    });
+  });
+}
+
+async function renderOyunlarOnline() {
+  document.body.classList.add('loading');
+  const counts = await fetchOnlineCounts();
+  const likedGames = getLikedGames();
+  let populer = [...oyunlar].sort((a,b) => (counts[b.id]?.likes||0)-(counts[a.id]?.likes||0));
+  
+  const populerOyun = populer[0];
+  const populerGrid = document.getElementById('populerOyunlarGrid');
+  populerGrid.innerHTML = populerOyun ? renderOyunKarti(populerOyun, counts[populerOyun.id]?.likes, likedGames.includes(populerOyun.id), counts[populerOyun.id]?.views) : '';
+  
+  // Popüler oyunu "Tüm Oyunlar" listesinden çıkar
+  const digerOyunlar = oyunlar.filter(o => !populerOyun || o.id !== populerOyun.id);
+  const oyunlarGrid = document.getElementById('oyunlarGrid');
+  oyunlarGrid.innerHTML = digerOyunlar.map(o=>renderOyunKarti(o, counts[o.id]?.likes, likedGames.includes(o.id), counts[o.id]?.views)).join('');
+  document.body.classList.remove('loading');
+}
+
+signInAnonymously(auth).then(() => {
+  renderOyunlarOnline().then(() => {
+    wireOnlineLikeButtons();
+    wireOnlineViewCounters();
+  });
+});
+</script>
+</body>
+</html>
