@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yönetim Paneli | VisionGaming</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#151a22; --line:#233046; --ink:#e7edf5;
+    --muted:#96a3b6; --accent:#6ee7ff; --bad:#ff6b6b; --ok:#39d98a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+  .wrap{max-width:800px;margin:24px auto;padding:0 16px}
+  h1, h2 { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  .block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    margin-top: 16px;
+  }
+  .block h3 { margin: 0 0 12px; }
+  button {
+    background:#101824;color:var(--ink);border:1px solid #2a3444;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer
+  }
+  button:hover{border-color:#3a4660}
+  button.danger { border-color: var(--bad); color: var(--bad); }
+  button.danger:hover { background: rgba(255, 107, 107, 0.1); }
+  button.primary { border-color: var(--accent); }
+  #login-screen { text-align: center; padding-top: 40px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 14px; }
+  .form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 1rem;
+    background: #0f1726;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+  }
+  #generated-code {
+    background: #0a0e13;
+    border: 1px solid var(--line);
+    padding: 12px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 12px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+  }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="login-screen">
+  <h1>🔒 Yönetici Girişi</h1>
+  <p>Lütfen yönetici hesabınızla giriş yapın.</p>
+  <button id="login-btn-google" class="primary">Google ile Giriş Yap</button>
+  <button id="login-btn-microsoft">Microsoft ile Giriş Yap</button>
+</div>
+
+<div class="wrap hidden" id="admin-panel">
+  <h1>🔑 Yönetim Paneli</h1>
+
+  <div class="block">
+    <h3>Yeni Oyun Ekle</h3>
+    <p style="color:var(--muted); font-size:14px; margin-top:-8px;">Formu doldurun ve oluşturulan kodu `index.html` dosyasındaki `oyunlar` dizisine yapıştırın.</p>
+    <form id="new-game-form">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="game-id">Oyun ID (örn: `yeni-oyun`)</label>
+          <input type="text" id="game-id" required>
+        </div>
+        <div class="form-group">
+          <label for="game-title">Oyun Başlığı (örn: `Yeni Oyun`)</label>
+          <input type="text" id="game-title" required>
+        </div>
+        <div class="form-group">
+          <label for="game-href">Oyun Dosya Yolu (örn: `Oyunlar/yeni-oyun/index.html`)</label>
+          <input type="text" id="game-href" required>
+        </div>
+        <div class="form-group">
+          <label for="game-img">Kapak Resmi Yolu (örn: `Oyunlar/yeni-oyun/cover.jpg`)</label>
+          <input type="text" id="game-img" required>
+        </div>
+        <div class="form-group">
+          <label for="game-emoji">Emoji (örn: `🎮`)</label>
+          <input type="text" id="game-emoji" required>
+        </div>
+        <div class="form-group">
+          <label for="game-meta">Meta Bilgisi (virgülle ayırın)</label>
+          <input type="text" id="game-meta" placeholder="örn: Klasik, Geliştiren: İsim">
+        </div>
+        <div class="form-group">
+          <label for="game-kategoriler">Kategoriler (virgülle ayırın)</label>
+          <input type="text" id="game-kategoriler" placeholder="örn: Beceri, Strateji">
+        </div>
+      </div>
+      <button type="submit" class="primary">Kod Oluştur</button>
+    </form>
+    <pre id="generated-code" class="hidden"></pre>
+  </div>
+
+  <div class="block">
+    <h3>Tehlikeli Alan</h3>
+    <p style="color:var(--muted); font-size:14px; margin-top:-8px;">Bu işlem tüm oyunların beğeni ve görüntülenme sayılarını kalıcı olarak sıfırlar.</p>
+    <button id="reset-stats-btn" class="danger">Tüm İstatistikleri Sıfırla</button>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+  import { getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+
+  // --- FIREBASE ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyCF7n0rXcy13_WiH0X5cFs8ljiDMZ0iQXg",
+    authDomain: "visiongaming-3f449.firebaseapp.com",
+    projectId: "visiongaming-3f449",
+    storageBucket: "visiongaming-3f449.firebasestorage.app",
+    messagingSenderId: "1060363896797",
+    appId: "1:1060363896797:web:722ae9bf7137aa01405834",
+    measurementId: "G-Y8BGQ65JLT"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  // --- GÜVENLİK ---
+  const ADMIN_EMAIL = "fatih.tatlici@vizyonkoleji.k12.tr"; // Yalnızca bu e-posta adresi giriş yapabilir
+  const loginScreen = document.getElementById('login-screen');
+  const adminPanel = document.getElementById('admin-panel');
+
+  onAuthStateChanged(auth, (user) => {
+    if (user && user.email === ADMIN_EMAIL) {
+      loginScreen.classList.add('hidden');
+      adminPanel.classList.remove('hidden');
+    } else {
+      loginScreen.classList.remove('hidden');
+      adminPanel.classList.add('hidden');
+    }
+  });
+
+  document.getElementById('login-btn-google').addEventListener('click', async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Giriş hatası:", error);
+      alert("Google ile giriş yapılamadı. Lütfen konsolu kontrol edin.");
+    }
+  });
+
+  document.getElementById('login-btn-microsoft').addEventListener('click', async () => {
+    const provider = new OAuthProvider('microsoft.com');
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Microsoft ile giriş hatası:", error);
+      alert("Microsoft ile giriş yapılamadı. Lütfen konsolu kontrol edin.");
+    }
+  });
+
+  // --- İSTATİSTİK SIFIRLAMA ---
+  // index.html'deki oyun ID'leri ile aynı olmalı. Yeni oyun eklediğinizde burayı da güncelleyin.
+  const gameIds = [
+    'mayin-tarlasi',
+    'hafiza',
+    'sudoku',
+    'xox',
+    'yilan'
+  ];
+
+  async function resetAllGameStats() {
+    if (!confirm("Tüm oyunların görüntülenme ve beğeni sayılarını sıfırlamak istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
+      alert("Sıfırlama işlemi iptal edildi.");
+      return;
+    }
+
+    try {
+      for (const oyunId of gameIds) {
+        const ref = doc(db, 'games', oyunId);
+        await setDoc(ref, { views: 0, likes: 0 }, { merge: true });
+        console.log(`'${oyunId}' istatistikleri sıfırlandı.`);
+      }
+      alert("✅ Tüm istatistikler başarıyla sıfırlandı.");
+    } catch (error) {
+      console.error("Sıfırlama sırasında bir hata oluştu:", error);
+      alert("❌ Sıfırlama sırasında bir hata oluştu. Konsolu kontrol edin.");
+    }
+  }
+
+  document.getElementById('reset-stats-btn').addEventListener('click', resetAllGameStats);
+
+  // --- YENİ OYUN EKLEME FORMU ---
+  const form = document.getElementById('new-game-form');
+  const generatedCodeEl = document.getElementById('generated-code');
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('game-id').value;
+    const title = document.getElementById('game-title').value;
+    const href = document.getElementById('game-href').value;
+    const img = document.getElementById('game-img').value;
+    const emoji = document.getElementById('game-emoji').value;
+    const meta = document.getElementById('game-meta').value.split(',').map(s => `'${s.trim()}'`).join(', ');
+    const kategoriler = document.getElementById('game-kategoriler').value.split(',').map(s => `'${s.trim()}'`).join(', ');
+
+    const code = `
+  {
+    id: '${id}',
+    href: '${href}',
+    emoji: '${emoji}',
+    img: '${img}',
+    title: '${title}',
+    meta: [${meta}],
+    kategoriler: [${kategoriler}]
+  },`;
+
+    generatedCodeEl.textContent = code.trim();
+    generatedCodeEl.classList.remove('hidden');
+    alert('Kod oluşturuldu! Aşağıdaki kodu kopyalayıp index.html dosyanıza yapıştırın.');
+  });
+
+</script>
+</body>
+</html>
