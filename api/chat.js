@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": "Bearer sk-XXXXXXX"
+      "Authorization": "Bearer sk-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"
     },
     body: JSON.stringify({
       model: "gpt-3.5-turbo",
