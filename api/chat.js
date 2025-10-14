@@ -17,9 +17,9 @@ export default async function handler(req, res) {
     if (!apiKey)
       return res.status(500).json({ error: "Gemini API anahtarı bulunamadı" });
 
-    // ✅ Güncellenmiş Gemini v1 endpoint
+    // ✅ Güncel endpoint ve model adı
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,5 +53,6 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Sunucu hatası", detail: err.message });
   }
 }
+
 
 
